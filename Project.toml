@@ -1,0 +1,28 @@
+name = "IMLikelihood"
+uuid = "5f36a6be-381d-4116-849f-15c75d16e8fd"
+authors = ["arzwa <arthur.zwaenepoel@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+NewickTree = "b0a14db8-6308-4ebc-8917-f72cd81f5094"
+Optim = "429524aa-4258-5aef-a3af-852621145aeb"
+OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
+Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
+ProfileView = "c46f51b8-102a-5cf2-8d2c-8597cb0e0da7"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+
+[compat]
+DifferentialEquations = "7.16.1"
+Distributions = "0.25.120"
+ForwardDiff = "1.2.1"
+NewickTree = "0.4.0"
+Optim = "1.13.2"
+OrdinaryDiffEq = "6.102.1"
+Parameters = "0.12.3"
+ProfileView = "1.10.2"
+Random = "1.11.0"
+StatsBase = "0.34.6"
