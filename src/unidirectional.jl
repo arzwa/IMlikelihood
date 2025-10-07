@@ -7,6 +7,7 @@ struct UniModel{T}
     nb :: Int
 end
 
+# XXX redundant with BiModel of course.
 function randtree(rng, model::UniModel)
     @unpack na, nb = model
     nodes = [

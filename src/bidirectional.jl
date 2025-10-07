@@ -152,7 +152,7 @@ function solve_slice_discretized(model, P, t0, t1, k, dt, nmin)
                             λb*dt*xb*(xb-1)/2 + 
                             mab*dt*xa + mba*dt*xb)
                     if r < 0.0 
-                        @error "rates too large"
+                        @error "rates too large for chosen dt"
                         r = 0.0
                     end
                     p = P[x1+1,x2+1,y1+1,y2+1] + log(r)
