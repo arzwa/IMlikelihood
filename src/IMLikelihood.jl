@@ -6,6 +6,7 @@ using Random
 using Distributions
 using Parameters
 using StatsBase
+using StatsFuns
 
 export UniModel, BiModel, getslices, randtree
 

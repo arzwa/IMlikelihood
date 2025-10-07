@@ -23,7 +23,7 @@ P, P_ = IMLikelihood.solve(model, ss, kmax=1)
 rng = Random.seed!(73)
 la = 1.2
 lb = 0.7
-m  = 1.2
+m  = 10.2
 na = 20
 nb = 20
 model = UniModel(la, lb, m, na, nb)

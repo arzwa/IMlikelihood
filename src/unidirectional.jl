@@ -190,7 +190,7 @@ function solve_discretized(model::UniModel{T}, ss::Slices, dt;
     end
 end
 
-function solve_slice_discretized(model, P, t0, t1, k, dt, nmin)
+function solve_slice_discretized(model::UniModel, P, t0, t1, k, dt, nmin)
     @unpack m, λa, λb, na, nb = model
     n = na + nb
     maxx = min(n-k+1, na)
@@ -202,15 +202,14 @@ function solve_slice_discretized(model, P, t0, t1, k, dt, nmin)
     end
     laststep = (t1 - t0) - nstep*dt
     P_ = copy(P)
-    for i=1:nstep+1
-        dt_ = i == nstep + 1 ? laststep : dt
+    for i=1:nstep
         for x=minx:maxx
             maxy = min(n-k+1-x,nb)
             for y=0:maxy
                 z = n - k + 1 - x - y
-                P_[x+1,y+1,z+1] = (1 - ((x*(x-1)/2 + y*(y-1)/2 + x*y)*λa*dt_ + 
-                    λb*dt_*z*(z-1)/2 + z*m*dt_))*P[x+1,y+1,z+1] + (
-                        (z >= nb || y == 0) ? 0.0 : (z+1)*m*dt_*P[x+1,y,z+2])
+                P_[x+1,y+1,z+1] = (1 - ((x*(x-1)/2 + y*(y-1)/2 + x*y)*λa*dt + 
+                    λb*dt*z*(z-1)/2 + z*m*dt))*P[x+1,y+1,z+1] + (
+                        (z >= nb || y == 0) ? 0.0 : (z+1)*m*dt*P[x+1,y,z+2])
             end
         end
         P = copy(P_)

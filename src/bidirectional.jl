@@ -4,9 +4,12 @@ struct BiModel{T}
     λb  :: T
     mab :: T  # A -> B backward in time
     mba :: T  # B -> A backward in time
+    na  :: Int
+    nb  :: Int
 end
 
-function randtree(rng, model::BiModel, na, nb)
+function randtree(rng, model::BiModel)
+    @unpack na, nb = model
     nodes = [
         [Node(i, n="A", d=0.0) for i=1:na], 
         [Node(i, n="B", d=0.0) for i=na+1:na+nb]]
@@ -95,7 +98,148 @@ function getslices2(tree::Node{T,V}) where {T,V}
         end
     end
     sort!(slices)
-    return Slices(na, nb, first.(slices), last.(slices))
+    return Slices(first.(slices), last.(slices))
+end
+
+function lhood_discretized(model::BiModel, slices, dt; kwargs...) 
+    P, P_ = solve_discretized(model, slices, dt; kwargs...) 
+    p = logsumexp(P)
+end
+
+function solve_discretized(model::BiModel{T}, ss::Slices, dt; 
+        nmin=10, kmax=length(ss)) where T
+    @unpack slices, labels = ss
+    @unpack na, nb = model
+    # initial state
+    P = fill(-Inf, na+2, na+2, nb+2, nb+2)
+    P[na+1, 1, nb+1, 1] = 0.0 
+    for k=1:kmax
+        t0 = k == 1 ? 0.0 : slices[k-1]
+        P_, dt_ = solve_slice_discretized(
+            model, P, t0, slices[k], k, dt, nmin) 
+        P  = initial_state_(P_, labels[k], k+1, model, dt=dt_) 
+        k == kmax && return P, P_
+    end
+end
+
+function solve_slice_discretized(model, P, t0, t1, k, dt, nmin)
+    @unpack mab, mba, λa, λb, na, nb = model
+    n = na + nb
+    maxx = min(n-k+1, na)
+    nstep = floor(Int, (t1 - t0) ÷ dt)
+    if nstep < nmin
+        dt = (t1 - t0)/nmin
+        nstep = nmin-1
+    end
+    laststep = (t1 - t0) - nstep*dt
+    P_ = copy(P)
+    for i=1:nstep
+        for x1=0:maxx
+            # x1 + x2 >= na - k + 1
+            minx2 = max(0, na-k+1-x1)
+            for x2=minx2:maxx-x1
+                maxy = min(n-k+1-x1-x2, nb)
+                for y1=0:maxy
+                    y2 = n-k+1-x1-x2-y1
+                    # x1 : A lineages in A
+                    # x2 : A lineages in B
+                    # y1 : B lineages in B
+                    # y2 : B lineages in A
+                    xa = x1 + y2  # lineages in A
+                    xb = x2 + y1  # lineages in B
+                    r = 1 - (
+                            λa*dt*xa*(xa-1)/2 + 
+                            λb*dt*xb*(xb-1)/2 + 
+                            mab*dt*xa + mba*dt*xb)
+                    if r < 0.0 
+                        @error "rates too large"
+                        r = 0.0
+                    end
+                    p = P[x1+1,x2+1,y1+1,y2+1] + log(r)
+                    if x1 > 0 && x2 < na
+                        p = logaddexp(p, P[x1,x2+2,y1+1,y2+1] + log((x2+1)*mba*dt))
+                    end
+                    if x1 < na && x2 > 0
+                        p = logaddexp(p, P[x1+2,x2,y1+1,y2+1] + log((x1+1)*mab*dt))
+                    end
+                    if y1 > 0 && y2 < nb
+                        p = logaddexp(p, P[x1+1,x2+1,y1,y2+2] + log((y2+1)*mab*dt))
+                    end
+                    if y1 < nb && y2 > 0
+                        p = logaddexp(p, P[x1+1,x2+1,y1+2,y2] + log((y1+1)*mba*dt))
+                    end
+                    P_[x1+1,x2+1,y1+1,y2+1] = p
+                end
+            end
+        end
+        P = copy(P_)
+    end
+    return P, laststep
+end
+
+function initial_state_(P::Array{T,4}, label, k, model::BiModel{T};
+        dt=1.0) where T
+    @unpack λa, λb, na, nb = model
+    λa *= dt
+    λb *= dt
+    _P = fill(-Inf, size(P))
+    n = na + nb
+    maxx = min(n-k+1, na)
+    for x1=0:maxx
+        # x1 + x2 >= na - k + 1
+        minx2 = max(0, na-k+1-x1)
+        for x2=minx2:maxx-x1
+            maxy = min(n-k+1-x1-x2, nb)
+            for y1=0:maxy
+                y2 = n-k+1-x1-x2-y1
+                # XXX Assumes P is oversized by one in each dimension, with
+                # a zero at na+2 in the first two and nb+2 in the last two
+                # dimensions
+                if label == "A|A" || label == "A|AB" || label == "AB|AB"
+                    # coalescence of 11 or of 22
+                    _P[x1+1,x2+1,y1+1,y2+1] = logaddexp(
+                        _P[x1+1,x2+1,y1+1,y2+1], 
+                        P[x1+2,x2+1,y1+1,y2+1] + log(λa*x1*(x1+1)/2))
+                    _P[x1+1,x2+1,y1+1,y2+1] = logaddexp( 
+                         _P[x1+1,x2+1,y1+1,y2+1], 
+                         P[x1+1,x2+2,y1+1,y2+1] + log(λb*x2*(x2+1)/2))
+                end
+                if label == "B|B" || label == "B|AB" || label == "AB|AB"
+                    # coal of 33 or 44
+                    _P[x1+1,x2+1,y1+1,y2+1] = logaddexp( 
+                        _P[x1+1,x2+1,y1+1,y2+1],
+                        P[x1+1,x2+1,y1+2,y2+1] + log(λb*y1*(y1+1)/2))
+                    _P[x1+1,x2+1,y1+1,y2+1] = logaddexp(
+                        _P[x1+1,x2+1,y1+1,y2+1],
+                        P[x1+1,x2+1,y1+1,y2+2] + log(λa*y2*(y2+1)/2))
+                end
+                if label == "A|B" || label == "A|AB" || label == "B|AB"
+                    # coal of 14->1 or 23->3
+                    _P[x1+1,x2+1,y1+1,y2+1] = logaddexp( 
+                        _P[x1+1,x2+1,y1+1,y2+1],
+                        P[x1+1,x2+1,y1+1,y2+2] + log(λa*(y2+1)*x1/2))
+                    _P[x1+1,x2+1,y1+1,y2+1] = logaddexp( 
+                        _P[x1+1,x2+1,y1+1,y2+1],
+                        P[x1+1,x2+2,y1+1,y2+1] + log(λb*(x2+1)*y1/2))
+                end
+                #elseif label == "A|AB"
+                #    # coal of 11 or 14 or 23 or 22
+                #elseif label == "B|AB"
+                #    # coal of 33 or 23 or 14 or 44
+                if label == "AB|AB"
+                    # coal of 22 or 23 or 32 or 33
+                    #      or 11 or 14 or 41 or 44
+                    _P[x1+1,x2+1,y1+1,y2+1] = logaddexp( 
+                        _P[x1+1,x2+1,y1+1,y2+1],
+                        2P[x1+1,x2+1,y1+1,y2+2] + log(λa*(y2+1)*x1/2))
+                    _P[x1+1,x2+1,y1+1,y2+1] = logaddexp(
+                        _P[x1+1,x2+1,y1+1,y2+1],
+                        2P[x1+1,x2+2,y1+1,y2+1] + log(λb*(x2+1)*y1/2))
+                end
+            end
+        end
+    end
+    return _P
 end
 
 function lhood(model::BiModel, slices; kwargs...) 
@@ -162,9 +306,11 @@ function odesystem_bi!(dP, P, problem, t)
 end
 
 # complicated!
-function initial_state(P::Array{T,4}, label, k, model::BiModel{T}, ss) where T
-    @unpack λa, λb = model
-    @unpack na, nb = ss
+function initial_state(P::Array{T,4}, label, k, model::BiModel{T};
+        dt=1.0) where T
+    @unpack λa, λb, na, nb = model
+    λa *= dt
+    λb *= dt
     _P = zeros(T, size(P))
     n = na + nb
     maxx = min(n-k+1, na)

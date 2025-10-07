@@ -14,6 +14,7 @@ Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
 ProfileView = "c46f51b8-102a-5cf2-8d2c-8597cb0e0da7"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+StatsFuns = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
 
 [compat]
 DifferentialEquations = "7.16.1"
@@ -26,3 +27,4 @@ Parameters = "0.12.3"
 ProfileView = "1.10.2"
 Random = "1.11.0"
 StatsBase = "0.34.6"
+StatsFuns = "1.5.0"
