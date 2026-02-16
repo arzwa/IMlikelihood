@@ -297,7 +297,7 @@ function odesystem_bi!(dP, P, problem, t)
                     p += P[x1+1,x2+1,y1,y2+2]*(y2+1)*mab
                 end
                 if y1 < nb && y2 > 0
-                    p += P[x1+1,x2+1,y1+2,y2]*(y1+2)*mba
+                    p += P[x1+1,x2+1,y1+2,y2]*(y1+1)*mba
                 end
                 dP[x1+1,x2+1,y1+1,y2+1] = p
             end
@@ -363,7 +363,8 @@ function initial_state(P::Array{T,4}, label, k, model::BiModel{T};
     return _P
 end
 
-function constraints(na, nb, k)
+function constraints(model::BiModel, k)
+    @unpack na, nb = model
     xx = NTuple{4,Int}[]
     n = na + nb
     maxx = min(n-k+1, na)
