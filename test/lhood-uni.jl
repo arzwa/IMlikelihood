@@ -19,7 +19,7 @@ end
 plot!(size=(350,250))
 
 P, P_ = IMLikelihood.solve(model, ss, kmax=1)
-        
+
 rng = Random.seed!(73)
 la = 1.2
 lb = 0.7
@@ -37,7 +37,7 @@ P, P_ = IMLikelihood.solve(model, ss)
 model = UniModel(la, lb, m, 10,10)
 ns = map(1:model.na+model.nb-1) do k
     length(IMLikelihood.constraints(model, k))
-end 
+end
 scatter(ns)
 
 xs = exp.(range(-2, 2, 50)) .* mean([la,lb,m])
@@ -46,9 +46,9 @@ labs = ["\$\\lambda_A\$", "\$\\lambda_B\$", "\$m\$"]
 map(1:3) do i
     ls = map(xs) do x
         θ = copy(θs); θ[i] = x
-        IMLikelihood.lhood_discretized(UniModel(θ..., na, nb), 
+        IMLikelihood.lhood_discretized(UniModel(θ..., na, nb),
             ss, 1e-2, nmin=20)
-    end 
+    end
     p2 = scatter(xs, ls, ms=2, color=:black, xlabel=labs[i], ylabel="\$\\ell\$")
     vline!([θs[i]])
     vline!([xs[argmax(ls)]], color=:black, ls=:dash)
@@ -58,7 +58,7 @@ f(x) = -IMLikelihood.lhood(UniModel(exp.(x)..., na, nb), ss)
 @time res = Optim.optimize(f, log.(θs), LBFGS(), autodiff=:forward);
 exp.(res.minimizer)
 
-f(x) = -IMLikelihood.lhood_discretized(UniModel(exp.(x)..., na, nb), 
+f(x) = -IMLikelihood.lhood_discretized(UniModel(exp.(x)..., na, nb),
     ss, 1e-3, nmin=10)
 @time res = Optim.optimize(f, log.(θs), LBFGS(), autodiff=:forward);
 exp.(res.minimizer)
@@ -70,18 +70,18 @@ lb = 0.7
 m  = 1.2
 na = 10
 nb = 10
-model = UniModel(la, lb, m)
+model = UniModel(la, lb, m, na, nb)
 nrep = 50
 nts = 10
 
 reps = map(1:nrep) do k
     @info k
-    lts = map(1:nts) do _ 
-        randtree(rng, model, na, nb)
+    lts = map(1:nts) do _
+        randtree(rng, model)
     end
     trees = first.(lts)
     sss = IMLikelihood.getslices.(trees);
-    mleob = x->mapreduce(ss-> -IMLikelihood.lhood(UniModel(exp.(x)...), ss), +, sss)
+    mleob = x->mapreduce(ss-> -IMLikelihood.lhood(UniModel(exp.(x)..., na, nb), ss), +, sss)
     #mleob(log.([la, lb, m]))
     res = Optim.optimize(mleob, log.([la, lb, m]))
     est = exp.(res.minimizer)
@@ -111,18 +111,17 @@ nb = 25
 ms = exp.(range(log(la*1e-2), log(la*10), 100))
 res = map(ms) do m
     @info m
-    model = UniModel(la, lb, m)
-    tree, l = randtree(rng, model, na, nb)
+    model = UniModel(la, lb, m, na, nb)
+    tree, l = randtree(rng, model)
     ss = IMLikelihood.getslices(tree)
-    mleob = x->-IMLikelihood.lhood(UniModel(la, lb, exp(x)), ss)
+    mleob = x->-IMLikelihood.lhood(UniModel(la, lb, exp(x), na, nb), ss)
     res = Optim.optimize(mleob, -5, 5)
     #mleob = x->-IMLikelihood.lhood(UniModel(exp.(x)...), ss)
     #res = Optim.optimize(mleob, log.([la, lb, m]), LBFGS())
     est = exp.(res.minimizer)
 end
 
-scatter(ms, last.(res), color=:black, ms=2, 
+scatter(ms, last.(res), color=:black, ms=2,
     xlabel="\$m\$", ylabel="\$\\hat{m}\$")
-plot!(x->x, xscale=:log10, yscale=:log10, size=(270,275), 
+plot!(x->x, xscale=:log10, yscale=:log10, size=(270,275),
     title="\$\\lambda_A = \\lambda_B = $la, n_A=n_B=$na\$")
-
